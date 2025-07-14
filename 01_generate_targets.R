@@ -78,3 +78,24 @@ targets_P1D_shuffled <- targets_P1D_interp |>
   arrange(variable, depth_m, site_id, date) |>
   reframe(.by = c(variable, site_id, depth_m),
           shuffle(ts = observation, times = 500))
+
+
+# Calculate the variance in the observations
+
+rep_acc <- data.frame(variable = c('Tw_C', 'SpCond_uScm', 'DO_mgL', 'Chla_ugL', 'fDOM_QSU'),
+                      reported_accuracy_95 = c(0.2, 0.17, 0.1 , 0.01, 0.01)) |>
+  mutate(sensor_var = (reported_accuracy_95/1.96)^2)
+
+## For D*tau = 3*1 length what is the variance, then find the mean of these
+targets_P1D_interp %>%
+  group_by(variable, depth_m, site_id) |> 
+  mutate(var = zoo::rollapply(observation, 
+                              width = 3, 
+                              FUN = var, 
+                              align = "left", fill = NA,
+                              by.column = FALSE)) |> 
+  group_by(variable, depth_m, site_id) |> 
+  summarise(obs_var = mean(var, na.rm = T),
+            obs_mean = mean(observation, na.rm = T)) |> 
+  right_join(rep_acc, by = 'variable') |> 
+  mutate(prop_sensor = sensor_var/obs_var)
