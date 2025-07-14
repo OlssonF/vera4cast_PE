@@ -81,16 +81,11 @@ targets_P1D_av_interp <- filter(targets_P1D_av_interp, date > start_date)
 
 
 ## 1. Modification of hyperparameters
-
-```{r set-hyperparameters-new}
-D  <- 5 # length of the word, embedding dimension
-tau <- 1 # embedding time delay
-window_length <- 50 # for a rolling PE how long should the time series be
-```
-
+### changing tau
+## tau  = 2
 This chunk generates the single PE value for each site-variable-depth combination. 
-```{r summary-P1D-new}
-summary_PE_alt <- targets_P1D_interp |> 
+```{r}
+summary_PE_alt_d3_t2 <- targets_P1D_interp |> 
   mutate(depth_m = factor(depth_m, levels = c('surface', 'bottom')),
          variable = factor(variable, levels = c('Tw_C',
                                                 'SpCond_uScm',
@@ -98,33 +93,33 @@ summary_PE_alt <- targets_P1D_interp |>
                                                 'DO_mgL',
                                                 'Chla_ugL'))) |> 
   reframe(.by = c(site_id, variable, depth_m),
-          PE = calculate_PE(observation, D = D, tau = tau)) |> 
+          PE = calculate_PE(observation, D = 3, tau = 2)) |> 
   mutate(predictability = 1 - PE) |> 
   arrange(PE)
 
-print(summary_PE_alt, n = 15)
+print(summary_PE_alt_d3_t2, n = 15)
 ```
 
 This chunk generates the time series of PE for each site-variable-depth combination based on the moving window calculation. 
 ```{r full_ts-P1D-new, warning=FALSE, message=FALSE}
-PE_ts_P1D_alt <- targets_P1D_interp |> 
+PE_ts_P1D_alt_d3_t2 <- targets_P1D_interp |> 
   group_by(site_id, variable, depth_m) |> 
   group_split() |> 
   map(.f = ~calculate_PE_ts(x = .x,
                             time_col = 'date', 
                             window_width = window_length,
                             tie_method = 'first', 
-                            D = D, tau = tau, 
+                            D = 3, tau = 2, 
                             use_weights = T)) |> 
   bind_rows()
 
-head(PE_ts_P1D_alt)
+head(PE_ts_P1D_alt_d3_t2)
 ```
 
 ### With new hyperparameters
 ```{r distributions-new, echo=FALSE, message=FALSE}
 # plot distributions by site
-central_tendancy_PE_sitewise <- PE_ts_P1D_alt |> 
+central_tendancy_PE_sitewise_d3_t2 <- PE_ts_P1D_alt_d3_t2 |> 
   na.omit() |> 
   mutate(depth_m = factor(depth_m, levels = c('surface', 'bottom')),
          variable = factor(variable, levels = c('Tw_C',
@@ -144,7 +139,7 @@ central_tendancy_PE_sitewise <- PE_ts_P1D_alt |>
           CDF = mean(predictability >= 0.5),
           median = median(predictability)) 
 
-PE_sitewise <- PE_ts_P1D_alt |> 
+PE_sitewise_d3_t2 <- PE_ts_P1D_alt_d3_t2 |> 
   mutate(depth_m = factor(depth_m, levels = c('surface', 'bottom')),
          variable = factor(variable, levels = c('Tw_C',
                                                 'SpCond_uScm',
@@ -164,7 +159,7 @@ PE_sitewise <- PE_ts_P1D_alt |>
                    colour = variable, 
                    fill = variable), 
                alpha = 0.5, rel_min_height = 0.005) +
-  geom_vline(data = filter(central_tendancy_PE_sitewise),
+  geom_vline(data = filter(central_tendancy_PE_sitewise_d3_t2),
              aes(xintercept = median, colour = variable), 
              show.legend = F, linewidth = 0.8, alpha = 0.7, linetype = 'longdash') +
   facet_grid(depth_m~site_id + description, scales = 'free') +
@@ -179,7 +174,7 @@ PE_sitewise <- PE_ts_P1D_alt |>
         strip.background = element_rect(fill = 'white', colour = NA)) 
 
 # plot distributions for both sites
-central_tendancy_PE_combined <-PE_ts_P1D_alt |> 
+central_tendancy_PE_combined_d3_t2 <-PE_ts_P1D_alt_d3_t2 |> 
   na.omit() |> 
   mutate(depth_m = factor(depth_m, levels = c('surface', 'bottom')),
          variable = factor(variable, levels = c('Tw_C',
@@ -199,7 +194,7 @@ central_tendancy_PE_combined <-PE_ts_P1D_alt |>
           CDF = mean(predictability >= 0.5),
           median = median(predictability)) 
 
-PE_combined <- PE_ts_P1D_alt |> 
+PE_combined_d3_t2 <- PE_ts_P1D_alt_d3_t2 |> 
   mutate(depth_m = factor(depth_m, levels = c('surface', 'bottom')),
          variable = factor(variable, levels = c('Tw_C',
                                                 'SpCond_uScm',
@@ -219,7 +214,7 @@ PE_combined <- PE_ts_P1D_alt |>
                           colour = variable, 
                           fill = variable), 
                       alpha = 0.5, rel_min_height = 0.005) +
-  geom_vline(data = filter(central_tendancy_PE_combined, depth_m != 'met'),
+  geom_vline(data = filter(central_tendancy_PE_combined_d3_t2, depth_m != 'met'),
              aes(xintercept = median, colour = variable), 
              show.legend = F, linewidth = 0.8, alpha = 0.7, linetype = 'longdash') +
   facet_grid(depth_m~sites, scales = 'free_y') +
@@ -234,12 +229,500 @@ PE_combined <- PE_ts_P1D_alt |>
         strip.background = element_rect(fill = 'white', colour = NA), 
         panel.spacing.x = unit(1, "lines")) 
 
-Fig_S1 <- ggpubr::ggarrange(PE_combined, PE_sitewise, common.legend = T, 
+Fig_S1_d3_t2 <- ggpubr::ggarrange(PE_combined_d3_t2, PE_sitewise_d3_t2, common.legend = T, 
                   widths = c(1,1.75), align = 'h',
                   labels = c('(a)', '(b)')) 
-Fig_S1
-Fig_S1|> 
-  ggsave(filename = '../Figure_S1.png', width = 25, height = 15, units = 'cm')
+Fig_S1_d3_t2
+Fig_S1_d3_t2 |> 
+  ggsave(filename = '../Figure_S1_D3_tau2.png', width = 25, height = 15, units = 'cm')
+
+```
+
+
+```{r}
+summary_PE_alt_d3_t3 <- targets_P1D_interp |> 
+  mutate(depth_m = factor(depth_m, levels = c('surface', 'bottom')),
+         variable = factor(variable, levels = c('Tw_C',
+                                                'SpCond_uScm',
+                                                'fDOM_QSU',
+                                                'DO_mgL',
+                                                'Chla_ugL'))) |> 
+  reframe(.by = c(site_id, variable, depth_m),
+          PE = calculate_PE(observation, D = 3, tau = 3)) |> 
+  mutate(predictability = 1 - PE) |> 
+  arrange(PE)
+
+print(summary_PE_alt_d3_t3, n = 15)
+```
+
+This chunk generates the time series of PE for each site-variable-depth combination based on the moving window calculation. 
+```{r full_ts-P1D-new, warning=FALSE, message=FALSE}
+PE_ts_P1D_alt_d3_t3 <- targets_P1D_interp |> 
+  group_by(site_id, variable, depth_m) |> 
+  group_split() |> 
+  map(.f = ~calculate_PE_ts(x = .x,
+                            time_col = 'date', 
+                            window_width = window_length,
+                            tie_method = 'first', 
+                            D = 3, tau = 3, 
+                            use_weights = T)) |> 
+  bind_rows()
+
+head(PE_ts_P1D_alt_d3_t3)
+```
+
+### With new hyperparameters
+```{r distributions-new, echo=FALSE, message=FALSE}
+# plot distributions by site
+central_tendancy_PE_sitewise_d3_t3 <- PE_ts_P1D_alt_d3_t3 |> 
+  na.omit() |> 
+  mutate(depth_m = factor(depth_m, levels = c('surface', 'bottom')),
+         variable = factor(variable, levels = c('Tw_C',
+                                                'SpCond_uScm',
+                                                'fDOM_QSU',
+                                                'DO_mgL',
+                                                'Chla_ugL'), 
+                           labels = c('Tw_C',
+                                      'SpCond_uScm',
+                                      'fDOM_QSU',
+                                      'DO_mgL',
+                                      'Chla_ugL')),
+         description = ifelse(site_id == 'FCR', 'with oxygenation', 'without oxygenation'),
+         predictability = 1-PE) |> 
+  reframe(.by = c(variable, depth_m, site_id, description),
+          quantile_80 = quantile(predictability, 0.2),
+          CDF = mean(predictability >= 0.5),
+          median = median(predictability)) 
+
+PE_sitewise_d3_t3 <- PE_ts_P1D_alt_d3_t3 |> 
+  mutate(depth_m = factor(depth_m, levels = c('surface', 'bottom')),
+         variable = factor(variable, levels = c('Tw_C',
+                                                'SpCond_uScm',
+                                                'fDOM_QSU',
+                                                'DO_mgL',
+                                                'Chla_ugL'), 
+                           labels = c('Tw_C',
+                                      'SpCond_uScm',
+                                      'fDOM_QSU',
+                                      'DO_mgL',
+                                      'Chla_ugL')),
+         description = ifelse(site_id == 'FCR', 'with oxygenation', 'without oxygenation'),
+         predictability = 1-PE) |> 
+  na.omit() |> 
+  ggplot()+
+  geom_density_ridges(aes(x=predictability, y= fct_rev(variable),
+                   colour = variable, 
+                   fill = variable), 
+               alpha = 0.5, rel_min_height = 0.005) +
+  geom_vline(data = filter(central_tendancy_PE_sitewise_d3_t3),
+             aes(xintercept = median, colour = variable), 
+             show.legend = F, linewidth = 0.8, alpha = 0.7, linetype = 'longdash') +
+  facet_grid(depth_m~site_id + description, scales = 'free') +
+  scale_fill_viridis_d(name = 'Variable_unit', option = 'plasma', begin = 0, end = 0.8) +
+  scale_colour_viridis_d(name = 'Variable_unit', option = 'plasma', begin = 0, end = 0.8) +
+  scale_x_continuous(expand = c(0.01,0.01), limits = c(0,1), breaks = seq(0,1, 0.2)) +
+  theme_minimal(base_size = 14) +
+  theme(panel.grid.minor = element_blank(),
+        legend.position = 'top', 
+        axis.text.y = element_text(hjust = 1, vjust = -1),
+        axis.title.y = element_blank(),
+        strip.background = element_rect(fill = 'white', colour = NA)) 
+
+# plot distributions for both sites
+central_tendancy_PE_combined_d3_t3 <-PE_ts_P1D_alt_d3_t3 |> 
+  na.omit() |> 
+  mutate(depth_m = factor(depth_m, levels = c('surface', 'bottom')),
+         variable = factor(variable, levels = c('Tw_C',
+                                                'SpCond_uScm',
+                                                'fDOM_QSU',
+                                                'DO_mgL',
+                                                'Chla_ugL'), 
+                           labels = c('Tw_C',
+                                      'SpCond_uScm',
+                                      'fDOM_QSU',
+                                      'DO_mgL',
+                                      'Chla_ugL')),
+         description = 'both sites',
+         predictability = 1-PE) |> 
+  reframe(.by = c(variable, depth_m),
+          quantile_80 = quantile(predictability, 0.2),
+          CDF = mean(predictability >= 0.5),
+          median = median(predictability)) 
+
+PE_combined_d3_t3 <- PE_ts_P1D_alt_d3_t3 |> 
+  mutate(depth_m = factor(depth_m, levels = c('surface', 'bottom')),
+         variable = factor(variable, levels = c('Tw_C',
+                                                'SpCond_uScm',
+                                                'fDOM_QSU',
+                                                'DO_mgL',
+                                                'Chla_ugL'), 
+                           labels = c('Tw_C',
+                                      'SpCond_uScm',
+                                      'fDOM_QSU',
+                                      'DO_mgL',
+                                      'Chla_ugL')),
+         predictability = 1-PE) |> 
+  na.omit() |> 
+  mutate(sites = 'both sites',) |> 
+  ggplot()+
+  geom_density_ridges(aes(x=predictability, y= fct_rev(variable),
+                          colour = variable, 
+                          fill = variable), 
+                      alpha = 0.5, rel_min_height = 0.005) +
+  geom_vline(data = filter(central_tendancy_PE_combined_d3_t3, depth_m != 'met'),
+             aes(xintercept = median, colour = variable), 
+             show.legend = F, linewidth = 0.8, alpha = 0.7, linetype = 'longdash') +
+  facet_grid(depth_m~sites, scales = 'free_y') +
+  scale_fill_viridis_d(name = 'Variable_unit', option = 'plasma', begin = 0, end = 0.8) +
+  scale_colour_viridis_d(name = 'Variable_unit', option = 'plasma', begin = 0, end = 0.8) +
+  scale_x_continuous(expand = c(0.01,0.01), limits = c(0,1), breaks = seq(0,1, 0.2))+
+  theme_minimal(base_size = 14) +
+  theme(panel.grid.minor = element_blank(),
+        legend.position = 'top', 
+        axis.text.y = element_text(hjust = 1, vjust = -1),
+        axis.title.y = element_blank(),
+        strip.background = element_rect(fill = 'white', colour = NA), 
+        panel.spacing.x = unit(1, "lines")) 
+
+Fig_S1_d3_t3 <- ggpubr::ggarrange(PE_combined_d3_t3, PE_sitewise_d3_t3, common.legend = T, 
+                  widths = c(1,1.75), align = 'h',
+                  labels = c('(a)', '(b)')) 
+Fig_S1_d3_t3
+Fig_S1_d3_t3 |> 
+  ggsave(filename = '../Figure_S1_D3_tau3.png', width = 25, height = 15, units = 'cm')
+
+```
+
+
+### a. tau = 50
+
+This chunk generates the single PE value for each site-variable-depth combination. 
+```{r summary-P1D-50}
+targets_P1D_interp |> 
+  mutate(depth_m = factor(depth_m, levels = c('surface', 'bottom')),
+         variable = factor(variable, levels = c('Tw_C',
+                                                'SpCond_uScm',
+                                                'fDOM_QSU',
+                                                'DO_mgL',
+                                                'Chla_ugL'))) |> 
+  reframe(.by = c(site_id, variable, depth_m),
+          PE_tau50 = calculate_PE(observation, D = 3, tau = 50),
+          PE_tau1 = calculate_PE(observation, D = 3, tau = 1)) |> 
+  mutate(predictability50 = 1 - PE_tau50,
+         predictability1 = 1 - PE_tau1) |> 
+  arrange(PE_tau1) |> 
+  print(n = 15)
+```
+
+### changing D
+
+This chunk generates the single PE value for each site-variable-depth combination. 
+```{r}
+summary_PE_alt_d5_t1 <- targets_P1D_interp |> 
+  mutate(depth_m = factor(depth_m, levels = c('surface', 'bottom')),
+         variable = factor(variable, levels = c('Tw_C',
+                                                'SpCond_uScm',
+                                                'fDOM_QSU',
+                                                'DO_mgL',
+                                                'Chla_ugL'))) |> 
+  reframe(.by = c(site_id, variable, depth_m),
+          PE = calculate_PE(observation, D = 5, tau = 1)) |> 
+  mutate(predictability = 1 - PE) |> 
+  arrange(PE)
+
+print(summary_PE_alt_d5_t1, n = 15)
+```
+
+This chunk generates the time series of PE for each site-variable-depth combination based on the moving window calculation. 
+```{r full_ts-P1D-new, warning=FALSE, message=FALSE}
+PE_ts_P1D_alt_d5_t1 <- targets_P1D_interp |> 
+  group_by(site_id, variable, depth_m) |> 
+  group_split() |> 
+  map(.f = ~calculate_PE_ts(x = .x,
+                            time_col = 'date', 
+                            window_width = window_length,
+                            tie_method = 'first', 
+                            D = 5, tau = 1, 
+                            use_weights = T)) |> 
+  bind_rows()
+
+head(PE_ts_P1D_alt_d5_t1)
+```
+
+### With new hyperparameters
+```{r distributions-new, echo=FALSE, message=FALSE}
+# plot distributions by site
+central_tendancy_PE_sitewise_d5_t1 <- PE_ts_P1D_alt_d5_t1 |> 
+  na.omit() |> 
+  mutate(depth_m = factor(depth_m, levels = c('surface', 'bottom')),
+         variable = factor(variable, levels = c('Tw_C',
+                                                'SpCond_uScm',
+                                                'fDOM_QSU',
+                                                'DO_mgL',
+                                                'Chla_ugL'), 
+                           labels = c('Tw_C',
+                                      'SpCond_uScm',
+                                      'fDOM_QSU',
+                                      'DO_mgL',
+                                      'Chla_ugL')),
+         description = ifelse(site_id == 'FCR', 'with oxygenation', 'without oxygenation'),
+         predictability = 1-PE) |> 
+  reframe(.by = c(variable, depth_m, site_id, description),
+          quantile_80 = quantile(predictability, 0.2),
+          CDF = mean(predictability >= 0.5),
+          median = median(predictability)) 
+
+PE_sitewise_d5_t1 <- PE_ts_P1D_alt_d5_t1 |> 
+  mutate(depth_m = factor(depth_m, levels = c('surface', 'bottom')),
+         variable = factor(variable, levels = c('Tw_C',
+                                                'SpCond_uScm',
+                                                'fDOM_QSU',
+                                                'DO_mgL',
+                                                'Chla_ugL'), 
+                           labels = c('Tw_C',
+                                      'SpCond_uScm',
+                                      'fDOM_QSU',
+                                      'DO_mgL',
+                                      'Chla_ugL')),
+         description = ifelse(site_id == 'FCR', 'with oxygenation', 'without oxygenation'),
+         predictability = 1-PE) |> 
+  na.omit() |> 
+  ggplot()+
+  geom_density_ridges(aes(x=predictability, y= fct_rev(variable),
+                   colour = variable, 
+                   fill = variable), 
+               alpha = 0.5, rel_min_height = 0.005) +
+  geom_vline(data = filter(central_tendancy_PE_sitewise_d5_t1),
+             aes(xintercept = median, colour = variable), 
+             show.legend = F, linewidth = 0.8, alpha = 0.7, linetype = 'longdash') +
+  facet_grid(depth_m~site_id + description, scales = 'free') +
+  scale_fill_viridis_d(name = 'Variable_unit', option = 'plasma', begin = 0, end = 0.8) +
+  scale_colour_viridis_d(name = 'Variable_unit', option = 'plasma', begin = 0, end = 0.8) +
+  scale_x_continuous(expand = c(0.01,0.01), limits = c(0,1), breaks = seq(0,1, 0.2)) +
+  theme_minimal(base_size = 14) +
+  theme(panel.grid.minor = element_blank(),
+        legend.position = 'top', 
+        axis.text.y = element_text(hjust = 1, vjust = -1),
+        axis.title.y = element_blank(),
+        strip.background = element_rect(fill = 'white', colour = NA)) 
+
+# plot distributions for both sites
+central_tendancy_PE_combined_d5_t1 <-PE_ts_P1D_alt_d5_t1 |> 
+  na.omit() |> 
+  mutate(depth_m = factor(depth_m, levels = c('surface', 'bottom')),
+         variable = factor(variable, levels = c('Tw_C',
+                                                'SpCond_uScm',
+                                                'fDOM_QSU',
+                                                'DO_mgL',
+                                                'Chla_ugL'), 
+                           labels = c('Tw_C',
+                                      'SpCond_uScm',
+                                      'fDOM_QSU',
+                                      'DO_mgL',
+                                      'Chla_ugL')),
+         description = 'both sites',
+         predictability = 1-PE) |> 
+  reframe(.by = c(variable, depth_m),
+          quantile_80 = quantile(predictability, 0.2),
+          CDF = mean(predictability >= 0.5),
+          median = median(predictability)) 
+
+PE_combined_d5_t1 <- PE_ts_P1D_alt_d5_t1 |> 
+  mutate(depth_m = factor(depth_m, levels = c('surface', 'bottom')),
+         variable = factor(variable, levels = c('Tw_C',
+                                                'SpCond_uScm',
+                                                'fDOM_QSU',
+                                                'DO_mgL',
+                                                'Chla_ugL'), 
+                           labels = c('Tw_C',
+                                      'SpCond_uScm',
+                                      'fDOM_QSU',
+                                      'DO_mgL',
+                                      'Chla_ugL')),
+         predictability = 1-PE) |> 
+  na.omit() |> 
+  mutate(sites = 'both sites',) |> 
+  ggplot()+
+  geom_density_ridges(aes(x=predictability, y= fct_rev(variable),
+                          colour = variable, 
+                          fill = variable), 
+                      alpha = 0.5, rel_min_height = 0.005) +
+  geom_vline(data = filter(central_tendancy_PE_combined_d5_t1, depth_m != 'met'),
+             aes(xintercept = median, colour = variable), 
+             show.legend = F, linewidth = 0.8, alpha = 0.7, linetype = 'longdash') +
+  facet_grid(depth_m~sites, scales = 'free_y') +
+  scale_fill_viridis_d(name = 'Variable_unit', option = 'plasma', begin = 0, end = 0.8) +
+  scale_colour_viridis_d(name = 'Variable_unit', option = 'plasma', begin = 0, end = 0.8) +
+  scale_x_continuous(expand = c(0.01,0.01), limits = c(0,1), breaks = seq(0,1, 0.2))+
+  theme_minimal(base_size = 14) +
+  theme(panel.grid.minor = element_blank(),
+        legend.position = 'top', 
+        axis.text.y = element_text(hjust = 1, vjust = -1),
+        axis.title.y = element_blank(),
+        strip.background = element_rect(fill = 'white', colour = NA), 
+        panel.spacing.x = unit(1, "lines")) 
+
+Fig_S1_d5_t1 <- ggpubr::ggarrange(PE_combined_d5_t1, PE_sitewise_d5_t1, common.legend = T, 
+                  widths = c(1,1.75), align = 'h',
+                  labels = c('(a)', '(b)')) 
+Fig_S1_d5_t1
+Fig_S1_d5_t1 |> 
+  ggsave(filename = '../Figure_S1_D5_tau1.png', width = 25, height = 15, units = 'cm')
+
+```
+
+This chunk generates the single PE value for each site-variable-depth combination. 
+```{r }
+summary_PE_alt_d4_t1 <- targets_P1D_interp |> 
+  mutate(depth_m = factor(depth_m, levels = c('surface', 'bottom')),
+         variable = factor(variable, levels = c('Tw_C',
+                                                'SpCond_uScm',
+                                                'fDOM_QSU',
+                                                'DO_mgL',
+                                                'Chla_ugL'))) |> 
+  reframe(.by = c(site_id, variable, depth_m),
+          PE = calculate_PE(observation, D = 4, tau = 1)) |> 
+  mutate(predictability = 1 - PE) |> 
+  arrange(PE)
+
+print(summary_PE_alt_d4_t1, n = 15)
+```
+
+This chunk generates the time series of PE for each site-variable-depth combination based on the moving window calculation. 
+```{r full_ts-P1D-new, warning=FALSE, message=FALSE}
+PE_ts_P1D_alt_d4_t1 <- targets_P1D_interp |> 
+  group_by(site_id, variable, depth_m) |> 
+  group_split() |> 
+  map(.f = ~calculate_PE_ts(x = .x,
+                            time_col = 'date', 
+                            window_width = window_length,
+                            tie_method = 'first', 
+                            D = 4, tau = 1, 
+                            use_weights = T)) |> 
+  bind_rows()
+
+head(PE_ts_P1D_alt_d4_t1)
+```
+
+### With new hyperparameters
+```{r, echo=FALSE, message=FALSE}
+# plot distributions by site
+central_tendancy_PE_sitewise_d4_t1 <- PE_ts_P1D_alt_d4_t1 |> 
+  na.omit() |> 
+  mutate(depth_m = factor(depth_m, levels = c('surface', 'bottom')),
+         variable = factor(variable, levels = c('Tw_C',
+                                                'SpCond_uScm',
+                                                'fDOM_QSU',
+                                                'DO_mgL',
+                                                'Chla_ugL'), 
+                           labels = c('Tw_C',
+                                      'SpCond_uScm',
+                                      'fDOM_QSU',
+                                      'DO_mgL',
+                                      'Chla_ugL')),
+         description = ifelse(site_id == 'FCR', 'with oxygenation', 'without oxygenation'),
+         predictability = 1-PE) |> 
+  reframe(.by = c(variable, depth_m, site_id, description),
+          quantile_80 = quantile(predictability, 0.2),
+          CDF = mean(predictability >= 0.5),
+          median = median(predictability)) 
+
+PE_sitewise_d4_t1 <- PE_ts_P1D_alt_d4_t1 |> 
+  mutate(depth_m = factor(depth_m, levels = c('surface', 'bottom')),
+         variable = factor(variable, levels = c('Tw_C',
+                                                'SpCond_uScm',
+                                                'fDOM_QSU',
+                                                'DO_mgL',
+                                                'Chla_ugL'), 
+                           labels = c('Tw_C',
+                                      'SpCond_uScm',
+                                      'fDOM_QSU',
+                                      'DO_mgL',
+                                      'Chla_ugL')),
+         description = ifelse(site_id == 'FCR', 'with oxygenation', 'without oxygenation'),
+         predictability = 1-PE) |> 
+  na.omit() |> 
+  ggplot()+
+  geom_density_ridges(aes(x=predictability, y= fct_rev(variable),
+                   colour = variable, 
+                   fill = variable), 
+               alpha = 0.5, rel_min_height = 0.005) +
+  geom_vline(data = filter(central_tendancy_PE_sitewise_d4_t1),
+             aes(xintercept = median, colour = variable), 
+             show.legend = F, linewidth = 0.8, alpha = 0.7, linetype = 'longdash') +
+  facet_grid(depth_m~site_id + description, scales = 'free') +
+  scale_fill_viridis_d(name = 'Variable_unit', option = 'plasma', begin = 0, end = 0.8) +
+  scale_colour_viridis_d(name = 'Variable_unit', option = 'plasma', begin = 0, end = 0.8) +
+  scale_x_continuous(expand = c(0.01,0.01), limits = c(0,1), breaks = seq(0,1, 0.2)) +
+  theme_minimal(base_size = 14) +
+  theme(panel.grid.minor = element_blank(),
+        legend.position = 'top', 
+        axis.text.y = element_text(hjust = 1, vjust = -1),
+        axis.title.y = element_blank(),
+        strip.background = element_rect(fill = 'white', colour = NA)) 
+
+# plot distributions for both sites
+central_tendancy_PE_combined_d4_t1 <-PE_ts_P1D_alt_d4_t1 |> 
+  na.omit() |> 
+  mutate(depth_m = factor(depth_m, levels = c('surface', 'bottom')),
+         variable = factor(variable, levels = c('Tw_C',
+                                                'SpCond_uScm',
+                                                'fDOM_QSU',
+                                                'DO_mgL',
+                                                'Chla_ugL'), 
+                           labels = c('Tw_C',
+                                      'SpCond_uScm',
+                                      'fDOM_QSU',
+                                      'DO_mgL',
+                                      'Chla_ugL')),
+         description = 'both sites',
+         predictability = 1-PE) |> 
+  reframe(.by = c(variable, depth_m),
+          quantile_80 = quantile(predictability, 0.2),
+          CDF = mean(predictability >= 0.5),
+          median = median(predictability)) 
+
+PE_combined_d4_t1 <- PE_ts_P1D_alt_d4_t1 |> 
+  mutate(depth_m = factor(depth_m, levels = c('surface', 'bottom')),
+         variable = factor(variable, levels = c('Tw_C',
+                                                'SpCond_uScm',
+                                                'fDOM_QSU',
+                                                'DO_mgL',
+                                                'Chla_ugL'), 
+                           labels = c('Tw_C',
+                                      'SpCond_uScm',
+                                      'fDOM_QSU',
+                                      'DO_mgL',
+                                      'Chla_ugL')),
+         predictability = 1-PE) |> 
+  na.omit() |> 
+  mutate(sites = 'both sites',) |> 
+  ggplot()+
+  geom_density_ridges(aes(x=predictability, y= fct_rev(variable),
+                          colour = variable, 
+                          fill = variable), 
+                      alpha = 0.5, rel_min_height = 0.005) +
+  geom_vline(data = filter(central_tendancy_PE_combined_d4_t1, depth_m != 'met'),
+             aes(xintercept = median, colour = variable), 
+             show.legend = F, linewidth = 0.8, alpha = 0.7, linetype = 'longdash') +
+  facet_grid(depth_m~sites, scales = 'free_y') +
+  scale_fill_viridis_d(name = 'Variable_unit', option = 'plasma', begin = 0, end = 0.8) +
+  scale_colour_viridis_d(name = 'Variable_unit', option = 'plasma', begin = 0, end = 0.8) +
+  scale_x_continuous(expand = c(0.01,0.01), limits = c(0,1), breaks = seq(0,1, 0.2))+
+  theme_minimal(base_size = 14) +
+  theme(panel.grid.minor = element_blank(),
+        legend.position = 'top', 
+        axis.text.y = element_text(hjust = 1, vjust = -1),
+        axis.title.y = element_blank(),
+        strip.background = element_rect(fill = 'white', colour = NA), 
+        panel.spacing.x = unit(1, "lines")) 
+
+Fig_S1_d4_t1 <- ggpubr::ggarrange(PE_combined_d4_t1, PE_sitewise_d4_t1, common.legend = T, 
+                  widths = c(1,1.75), align = 'h',
+                  labels = c('(a)', '(b)')) 
+Fig_S1_d4_t1
+Fig_S1_d4_t1|> 
+  ggsave(filename = '../Figure_S1_D4_tau1.png', width = 25, height = 15, units = 'cm')
 
 ```
 
@@ -404,5 +887,6 @@ Fig_S5|>
   ggsave(filename = '../Figure_S5.png', width = 25, height = 15, units = 'cm')
 
 ```
+
 
 
