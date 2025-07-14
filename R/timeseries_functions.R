@@ -40,17 +40,25 @@ resample <- function(ts, length.out = 100, n = 100, doy = NA) {
 #' 
 #' @param ts a dataframe of raw timeseries data (single site-variable-depth combination)
 #' Needs a datetime column that is regularly sampled at the timestep smaller than the out_freq
-#' @param out_freq string - what should the temporal frequency of the output be ('hourly', 'daily', 'weekly')
+#' @param out_freq string - what should the temporal frequency of the output be options are 'hourly', 'daily', 'weekly'
 #' @param method string - how should the downsampling occur - 'aggregate' or 'sample'
-#' @param target_out for 'sample' what is the target time to sample HH:MM:SS for daily, MM:SS for hourly, day of week for weekly
-#' @param max_distance how far from the target is okay? for weekly this is in days, for daily in hours, and hourly in minutes. Default is any distance
-#'
+#' @param target_out for 'sample' what is the target time to sample 
+#' MM:SS for hourly - string, 
+#' #' HH:MM:SS for daily - string, 
+#' time and day of week for weekly - vector with the time and the day e.g. c("12:00:00", 2) - noon on Tuesday
+#' @param max_distance how far from the target is okay? numeric vector length 1-2
+#' hourly in minutes
+#' for daily in hours
+#' for weekly this is a vector that relates to the time and then day of the week e.g. c(1,1) - 1 hour and 1 day max distance 
+#' Default is any distance - Inf
+#' @param min_sample for aggregate what is the minimum number of samples required to calculate the average. numeric. Default = 1
 #' @returns a dataframe
 
 downsample <- function(ts, 
                        out_freq = 'daily', 
                        target_out = '12:00:00',
                        max_distance = Inf,
+                       min_sample = 1,
                        method = 'sample') {
   
   ts <- ts |> 
@@ -61,14 +69,18 @@ downsample <- function(ts,
   if (method == 'aggregate') {
     if (out_freq == 'hourly') {
       target_out <- '00:00'
+      max_distance <- Inf
     }
     
     if (out_freq == 'daily') {
       target_out <- '12:00:00'
+      max_distance <- Inf
+      
     }
     
     if (out_freq == 'weekly') {
-      target_out <- '1'
+      target_out <- c('12:00:00', '1')
+      max_distance <- c(Inf, Inf)
     }
   }
   
@@ -118,7 +130,7 @@ downsample <- function(ts,
                        observation_sample = nth(observation, which.min(distance)), # takes the observation closest
                        n = n(),
                        distance = min(distance)) |> 
-      dplyr::mutate(observation_aggregate = ifelse(method == 'aggregate' & n > 6*24/2,
+      dplyr::mutate(observation_aggregate = ifelse(method == 'aggregate' & n > min_sample,
                                                    observation_aggregate, NA),
                     observation_sample = ifelse(method == 'sample' & distance <= max_distance_t,
                                                 observation_sample, NA)) |> 
@@ -146,7 +158,7 @@ downsample <- function(ts,
                        observation_sample = nth(observation, which.min(abs(as.numeric(dow - as.numeric(target_day))))), # takes the observation closest
                        n = n(),
                        distance = min(abs(as.numeric(dow - as.numeric(target_day), 'hours')))) |>
-      dplyr::filter((method == 'aggregate' & n > 4) | (method == 'sample' & distance <= max_distance_d)) |> # removes if there are less than 3 obs in any one hour
+      dplyr::filter((method == 'aggregate' & n > min_sample) | (method == 'sample' & distance <= max_distance_d)) |> # removes if there are less than 3 obs in any one hour
       as_tibble()  |>
       pivot_longer(cols = observation_aggregate:observation_sample,
                    values_to='observation', names_prefix = 'observation_') |>
